@@ -1,8 +1,24 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ironmaster_dumbbell_calculator/database/database.dart';
 import 'package:ironmaster_dumbbell_calculator/screens/tabs.dart';
 
-void main() {
-  runApp(const App());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  bool isOpen = (await AppDatabase.instance.database)?.isOpen ?? false;
+  if (!isOpen) {
+    print("Database could not be opened.");
+    exit(1);
+  }
+
+  runApp(
+    const ProviderScope(
+      child: App(),
+    ),
+  );
 }
 
 class App extends StatelessWidget {

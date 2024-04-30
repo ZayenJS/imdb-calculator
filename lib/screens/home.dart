@@ -1,15 +1,18 @@
+import 'dart:ffi';
+
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ironmaster_dumbbell_calculator/providers/settings.dart';
 import 'package:ironmaster_dumbbell_calculator/utils/converter.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _selectedEquipement = 0;
 
   // weights are in lbs
@@ -22,6 +25,8 @@ class _HomeScreenState extends State<HomeScreen> {
     '5': 0,
     '2_5': 0,
   };
+  double _flooredClosestAchievableWeight = 0.0;
+  double _ceiledClosestAchievableWeight = 0.0;
   double _realWeight = 0.0;
 
   late TextEditingController _weightInKgController;
@@ -47,6 +52,7 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _selectedEquipement = index;
     });
+    _calculateNeededWeights();
   }
 
   Color _getEquipementColor(int index) {
@@ -70,19 +76,69 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
+    final SettingsState settingsState = ref.read(settingsProvider);
+
     // TODO: refactor + extract to a class -> param = weightInLbs
-    double available22_5LbsPlates = 2;
+    double available22_5LbsPlates = 0;
+
+    if (settingsState.has120lbsAddOn) {
+      available22_5LbsPlates += 2;
+    }
+
+    if (settingsState.has165lbsAddOn) {
+      available22_5LbsPlates += 2;
+    }
+
     double available5LbsPlates = 12;
     double available2_5LbsPlates = 2;
+    final bool hasHeavyHandleKit = settingsState.hasHeavyHandleKit;
 
-    final double _maxAchievableWeight = 22.5 * available22_5LbsPlates +
+    double maxAchievableWeight = 22.5 * available22_5LbsPlates +
         5 * available5LbsPlates +
         2.5 * available2_5LbsPlates;
 
-    if (weightInLbs > _maxAchievableWeight) {
+    if (_selectedEquipement == 0) {
+      maxAchievableWeight += dumbbellWeight;
+      if (hasHeavyHandleKit) {
+        maxAchievableWeight += 15;
+      }
+    } else if (_selectedEquipement == 1) {
+      if (settingsState.has120lbsAddOn || settingsState.has165lbsAddOn) {
+        available22_5LbsPlates = 2;
+      }
+
+      available5LbsPlates = 2;
+      available2_5LbsPlates = 1;
+
+      maxAchievableWeight = 22.5 * available22_5LbsPlates +
+          5 * available5LbsPlates +
+          2.5 * available2_5LbsPlates;
+
+      maxAchievableWeight += kettlebellWeight;
+
+      print('maxAchievableWeight: $maxAchievableWeight');
+    } else if (_selectedEquipement == 2) {
+      maxAchievableWeight += ezBarWeight;
+
+      if (hasHeavyHandleKit) {
+        maxAchievableWeight += 15;
+      }
+    }
+
+    if (weightInLbs > maxAchievableWeight) {
       // TODO: show a snackbar
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('The weight is too heavy.'),
+          backgroundColor:
+              Theme.of(context).colorScheme.error.withOpacity(0.75),
+        ),
+      );
+
       setState(() {
         _realWeight = 0.0;
+        _flooredClosestAchievableWeight = maxAchievableWeight;
         _neededWeights = {
           '22_5': 0,
           '5': 0,
@@ -101,6 +157,10 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_selectedEquipement == 0) {
       remainingWeight -= dumbbellWeight;
 
+      if (hasHeavyHandleKit) {
+        remainingWeight -= 15;
+      }
+
       // always use pairs for 22.5 lbs plates
       if (available22_5LbsPlates >= 2) {
         for (int i = 0; i < available22_5LbsPlates; i++) {
@@ -113,9 +173,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
       // always use pairs for 5 lbs plates
       for (int i = 0; i < available5LbsPlates; i++) {
-        if (remainingWeight >= 5 * 2) {
-          needed5LbsPlates += 2;
-          remainingWeight -= 5 * 2;
+        if (remainingWeight >= 5) {
+          needed5LbsPlates++;
+          remainingWeight -= 5;
         }
       }
 
@@ -153,6 +213,10 @@ class _HomeScreenState extends State<HomeScreen> {
     } else if (_selectedEquipement == 2) {
       remainingWeight -= ezBarWeight;
 
+      if (hasHeavyHandleKit) {
+        remainingWeight -= 15;
+      }
+
       // always use pairs for 22.5 lbs plates
       if (available22_5LbsPlates >= 2) {
         for (int i = 0; i < available22_5LbsPlates; i++) {
@@ -179,8 +243,19 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
 
+    final ceiledClosestAchievableWeight = weightInLbs - remainingWeight + 2.5;
+    final bool isWeightAchievable =
+        ceiledClosestAchievableWeight <= maxAchievableWeight;
+
     setState(() {
       _realWeight = weightInLbs - remainingWeight;
+
+      if (isWeightAchievable) {
+        _ceiledClosestAchievableWeight = weightInLbs - remainingWeight + 2.5;
+      } else {
+        _ceiledClosestAchievableWeight = 0.0;
+      }
+
       _neededWeights = {
         '22_5': needed22_5LbsPlates,
         '5': needed5LbsPlates,
@@ -361,6 +436,80 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ],
                   ),
+                  if (_realWeight != 0.0 &&
+                      _weightInKgController.text.isNotEmpty)
+                    Column(
+                      children: [
+                        const Divider(
+                          height: 50.0,
+                        ),
+                        const Text(
+                          'Weight',
+                          style: TextStyle(
+                            fontSize: 18.0,
+                          ),
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            Text(
+                              '${Converter.lbsToKg(_realWeight).toStringAsFixed(2)} kg',
+                            ),
+                            Text("${_realWeight.toStringAsFixed(2)} lbs")
+                          ],
+                        )
+                      ],
+                    ),
+                  if (_realWeight != 0.0 &&
+                      _weightInLbsController.text.isNotEmpty &&
+                      _ceiledClosestAchievableWeight != 0.0)
+                    Column(
+                      children: [
+                        const SizedBox(
+                          height: 16.0,
+                        ),
+                        const Text(
+                          'Closest ceiled weight',
+                          style: TextStyle(
+                            fontSize: 18.0,
+                          ),
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            Text(
+                              '${Converter.lbsToKg(_ceiledClosestAchievableWeight).toStringAsFixed(2)} kg',
+                            ),
+                            Text(
+                              '${_ceiledClosestAchievableWeight.toStringAsFixed(2)} lbs',
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  if (_realWeight == 0.0 &&
+                      _weightInLbsController.text.isNotEmpty)
+                    Column(
+                      children: [
+                        const Text(
+                          'Closest achievable weight',
+                          style: TextStyle(
+                            fontSize: 18.0,
+                          ),
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            Text(
+                              '${Converter.lbsToKg(_flooredClosestAchievableWeight).toStringAsFixed(2)} kg',
+                            ),
+                            Text(
+                              '${_flooredClosestAchievableWeight.toStringAsFixed(2)} lbs',
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                 ],
               ),
             ],
