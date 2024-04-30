@@ -17,11 +17,12 @@ class _HomeScreenState extends State<HomeScreen> {
   final double kettlebellWeight = 22.5;
   final double ezBarWeight = 15.0;
 
-  Map<String, int> _neededWeights = {
+  Map<String, double> _neededWeights = {
     '22_5': 0,
     '5': 0,
     '2_5': 0,
   };
+  double _realWeight = 0.0;
 
   late TextEditingController _weightInKgController;
   late TextEditingController _weightInLbsController;
@@ -54,63 +55,138 @@ class _HomeScreenState extends State<HomeScreen> {
         : Colors.transparent;
   }
 
-  Map<String, int> _calculateNeededWeights() {
+  void _calculateNeededWeights() {
     final weightInLbs = double.tryParse(_weightInLbsController.text);
 
     if (weightInLbs == null) {
-      return {
-        '22_5': 0,
-        '5': 0,
-        '2_5': 0,
-      };
+      setState(() {
+        _realWeight = 0.0;
+        _neededWeights = {
+          '22_5': 0,
+          '5': 0,
+          '2_5': 0,
+        };
+      });
+      return;
     }
 
-    int available22_5LbsPlates = 2;
-    int available5LbsPlates = 12;
-    int available2_5LbsPlates = 2;
+    // TODO: refactor + extract to a class -> param = weightInLbs
+    double available22_5LbsPlates = 2;
+    double available5LbsPlates = 12;
+    double available2_5LbsPlates = 2;
 
-    int needed22_5LbsPlates = 0;
-    int needed5LbsPlates = 0;
-    int needed2_5LbsPlates = 0;
+    final double _maxAchievableWeight = 22.5 * available22_5LbsPlates +
+        5 * available5LbsPlates +
+        2.5 * available2_5LbsPlates;
+
+    if (weightInLbs > _maxAchievableWeight) {
+      // TODO: show a snackbar
+      setState(() {
+        _realWeight = 0.0;
+        _neededWeights = {
+          '22_5': 0,
+          '5': 0,
+          '2_5': 0,
+        };
+      });
+      return;
+    }
+
+    double needed22_5LbsPlates = 0;
+    double needed5LbsPlates = 0;
+    double needed2_5LbsPlates = 0;
 
     double remainingWeight = weightInLbs;
 
     if (_selectedEquipement == 0) {
       remainingWeight -= dumbbellWeight;
+
+      // always use pairs for 22.5 lbs plates
+      if (available22_5LbsPlates >= 2) {
+        for (int i = 0; i < available22_5LbsPlates; i++) {
+          if (remainingWeight >= 22.5 * 2) {
+            needed22_5LbsPlates += 2;
+            remainingWeight -= 22.5 * 2;
+          }
+        }
+      }
+
+      // always use pairs for 5 lbs plates
+      for (int i = 0; i < available5LbsPlates; i++) {
+        if (remainingWeight >= 5 * 2) {
+          needed5LbsPlates += 2;
+          remainingWeight -= 5 * 2;
+        }
+      }
+
+      for (int i = 0; i < available2_5LbsPlates; i++) {
+        if (remainingWeight >= 2.5) {
+          needed2_5LbsPlates++;
+          remainingWeight -= 2.5;
+        }
+      }
     } else if (_selectedEquipement == 1) {
       remainingWeight -= kettlebellWeight;
+
+      if (available22_5LbsPlates > 0) {
+        for (int i = 0; i < available22_5LbsPlates; i++) {
+          if (remainingWeight >= 22.5) {
+            needed22_5LbsPlates++;
+            remainingWeight -= 22.5;
+          }
+        }
+      }
+
+      for (int i = 0; i < available5LbsPlates; i++) {
+        if (remainingWeight >= 5) {
+          needed5LbsPlates++;
+          remainingWeight -= 5;
+        }
+      }
+
+      for (int i = 0; i < available2_5LbsPlates; i++) {
+        if (remainingWeight >= 2.5) {
+          needed2_5LbsPlates++;
+          remainingWeight -= 2.5;
+        }
+      }
     } else if (_selectedEquipement == 2) {
       remainingWeight -= ezBarWeight;
-    }
 
-    if (available22_5LbsPlates > 0) {
-      for (int i = 0; i < available22_5LbsPlates; i++) {
-        if (remainingWeight >= 22.5) {
-          needed22_5LbsPlates++;
-          remainingWeight -= 22.5;
+      // always use pairs for 22.5 lbs plates
+      if (available22_5LbsPlates >= 2) {
+        for (int i = 0; i < available22_5LbsPlates; i++) {
+          if (remainingWeight >= 22.5 * 2) {
+            needed22_5LbsPlates += 2;
+            remainingWeight -= 22.5 * 2;
+          }
+        }
+      }
+
+      // always use pairs for 5 lbs plates
+      for (int i = 0; i < available5LbsPlates; i++) {
+        if (remainingWeight >= 5 * 2) {
+          needed5LbsPlates += 2;
+          remainingWeight -= 5 * 2;
+        }
+      }
+
+      for (int i = 0; i < available2_5LbsPlates; i++) {
+        if (remainingWeight >= 2.5) {
+          needed2_5LbsPlates++;
+          remainingWeight -= 2.5;
         }
       }
     }
 
-    for (int i = 0; i < available5LbsPlates; i++) {
-      if (remainingWeight >= 5) {
-        needed5LbsPlates++;
-        remainingWeight -= 5;
-      }
-    }
-
-    for (int i = 0; i < available2_5LbsPlates; i++) {
-      if (remainingWeight >= 2.5) {
-        needed2_5LbsPlates++;
-        remainingWeight -= 2.5;
-      }
-    }
-
-    return {
-      '22_5': needed22_5LbsPlates,
-      '5': needed5LbsPlates,
-      '2_5': needed2_5LbsPlates,
-    };
+    setState(() {
+      _realWeight = weightInLbs - remainingWeight;
+      _neededWeights = {
+        '22_5': needed22_5LbsPlates,
+        '5': needed5LbsPlates,
+        '2_5': needed2_5LbsPlates,
+      };
+    });
   }
 
   @override
@@ -215,9 +291,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               Converter.kgToLbs(weightInKg).toString();
                         }
 
-                        setState(() {
-                          _neededWeights = _calculateNeededWeights();
-                        });
+                        _calculateNeededWeights();
                       },
                     ),
                   ),
@@ -240,9 +314,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               Converter.lbsToKg(weightInLbs).toString();
                         }
 
-                        setState(() {
-                          _neededWeights = _calculateNeededWeights();
-                        });
+                        _calculateNeededWeights();
                       },
                     ),
                   ),
@@ -267,7 +339,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           Text('22.5 lbs'),
                           Text(
-                            _neededWeights['22_5'].toString(),
+                            _neededWeights['22_5']!.toInt().toString(),
                           ),
                         ],
                       ),
@@ -275,7 +347,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           Text('5 lbs'),
                           Text(
-                            _neededWeights['5'].toString(),
+                            _neededWeights['5']!.toInt().toString(),
                           ),
                         ],
                       ),
@@ -283,7 +355,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           Text('2.5 lbs'),
                           Text(
-                            _neededWeights['2_5'].toString(),
+                            _neededWeights['2_5']!.toInt().toString(),
                           ),
                         ],
                       ),
