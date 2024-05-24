@@ -1,18 +1,12 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ironmaster_dumbbell_calculator/database/database.dart';
 import 'package:ironmaster_dumbbell_calculator/screens/tabs.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
-  bool isOpen = (await AppDatabase.instance.database)?.isOpen ?? false;
-  if (!isOpen) {
-    print("Database could not be opened.");
-    exit(1);
-  }
+  final appDb = AppDatabase();
+  await appDb.initializeDatabase();
+  await appDb.setup();
 
   runApp(
     const ProviderScope(

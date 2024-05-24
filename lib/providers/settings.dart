@@ -28,6 +28,16 @@ class SettingsState {
 class SettingsNotifier extends StateNotifier<SettingsState> {
   SettingsNotifier() : super(const SettingsState());
 
+  void loadFromDb() async {
+    final settings = await Settings.get();
+
+    state = SettingsState(
+      has120lbsAddOn: settings.has120lbsAddOn,
+      has165lbsAddOn: settings.has165lbsAddOn,
+      hasHeavyHandleKit: settings.hasHeavyHandleKit,
+    );
+  }
+
   void toggle120lbsAddOn() {
     state = state.copyWith(has120lbsAddOn: !state.has120lbsAddOn);
 

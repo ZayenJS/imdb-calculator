@@ -1,5 +1,3 @@
-import 'dart:ffi';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ironmaster_dumbbell_calculator/providers/settings.dart';
@@ -36,6 +34,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void initState() {
     super.initState();
 
+    ref.read(settingsProvider.notifier).loadFromDb();
     _weightInKgController = TextEditingController();
     _weightInLbsController = TextEditingController();
   }
@@ -115,8 +114,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           2.5 * available2_5LbsPlates;
 
       maxAchievableWeight += kettlebellWeight;
-
-      print('maxAchievableWeight: $maxAchievableWeight');
     } else if (_selectedEquipement == 2) {
       maxAchievableWeight += ezBarWeight;
 
@@ -126,7 +123,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
 
     if (weightInLbs > maxAchievableWeight) {
-      // TODO: show a snackbar
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -177,6 +173,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           needed5LbsPlates++;
           remainingWeight -= 5;
         }
+      }
+
+      if (needed5LbsPlates % 2 != 0) {
+        needed5LbsPlates--;
+        needed2_5LbsPlates += 2;
       }
 
       for (int i = 0; i < available2_5LbsPlates; i++) {

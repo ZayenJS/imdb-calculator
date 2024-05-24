@@ -28,9 +28,9 @@ class Settings {
       )
     ''';
 
-    final Database? db = await AppDatabase.instance.database;
+    final Database db = await AppDatabase.getDb();
 
-    if (!db!.isOpen) {
+    if (!db.isOpen) {
       print("Database was not opened.");
       exit(1);
     }
@@ -63,24 +63,24 @@ class Settings {
     };
   }
 
-  Future<void> insert() async {
-    final Database? db = await AppDatabase.instance.database;
+  Future<int> insert() async {
+    final Database db = await AppDatabase.getDb();
 
-    if (!db!.isOpen) {
+    if (!db.isOpen) {
       print("Database was not opened.");
       exit(1);
     }
 
-    await db.insert(
+    return await db.insert(
       'settings',
       toInsertableMap(),
     );
   }
 
   Future<void> update() async {
-    final Database? db = await AppDatabase.instance.database;
+    final Database db = await AppDatabase.getDb();
 
-    if (!db!.isOpen) {
+    if (!db.isOpen) {
       print("Database was not opened.");
       exit(1);
     }
@@ -92,9 +92,9 @@ class Settings {
   }
 
   static Future<Settings> get() async {
-    final Database? db = await AppDatabase.instance.database;
+    final Database db = await AppDatabase.getDb();
 
-    if (!db!.isOpen) {
+    if (!db.isOpen) {
       print("Database was not opened.");
       exit(1);
     }
@@ -102,6 +102,13 @@ class Settings {
     List<Map<String, dynamic>> maps = await db.query('settings');
 
     if (maps.isEmpty) {
+      await Settings(
+        id: 1,
+        has120lbsAddOn: false,
+        has165lbsAddOn: false,
+        hasHeavyHandleKit: false,
+      ).insert();
+
       return Settings();
     }
 
