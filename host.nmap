@@ -1,0 +1,4 @@
+# Nmap 7.94 scan initiated Mon Oct 14 00:00:40 2024 as: nmap -sn -oA host -PE --reason 192.168.1.215
+Nmap scan report for 192.168.1.215
+Host is up, received localhost-response.
+# Nmap done at Mon Oct 14 00:00:40 2024 -- 1 IP address (1 host up) scanned in 0.01 seconds
